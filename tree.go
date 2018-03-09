@@ -2,18 +2,17 @@ package goscore
 
 import (
 	"encoding/xml"
-	"errors"
 	"strconv"
 )
 
-type truePredicate struct{}
+type truePredicate struct {
+}
 type dummyMiningSchema struct{}
 
 // Node - PMML tree node
 type Node struct {
 	XMLName            xml.Name
 	Attrs              []xml.Attr         `xml:",any,attr"`
-	Content            []byte             `xml:",innerxml"`
 	Nodes              []Node             `xml:",any"`
 	True               truePredicate      `xml:"True"`
 	DummyMiningSchema  dummyMiningSchema  `xml:"MiningSchema"`
@@ -24,26 +23,26 @@ type Node struct {
 // TraverseTree - traverses Node predicates with features and returns score by terminal node
 func (n Node) TraverseTree(features map[string]interface{}) (score float64, err error) {
 	curr := n.Nodes[0]
-	for len(curr.Nodes) > 0 {
-		prevID := curr.Attrs[0].Value
-		curr = step(curr, features)
-		if prevID == curr.Attrs[0].Value {
-			break
-		}
+	cont := true
+
+	for cont && len(curr.Nodes) > 0 {
+		curr, cont = step(curr, features)
 	}
 
-	if len(curr.Attrs) < 2 {
-		return -1, errors.New("Terminal node without score, Node id: " + curr.Attrs[0].Value)
+	// TODO handle cases like nullPrediction
+	if len(curr.Attrs) == 0 {
+		return 0.0, nil
 	}
-	return strconv.ParseFloat(curr.Attrs[1].Value, 64)
+	return strconv.ParseFloat(curr.Attrs[0].Value, 64)
 }
 
-func step(curr Node, features map[string]interface{}) Node {
+func step(curr Node, features map[string]interface{}) (Node, bool) {
 	for _, node := range curr.Nodes {
-		if node.XMLName.Local == "True" || node.SimplePredicate.True(features) || node.SimpleSetPredicate.True(features) {
-			curr = node
-			break
+		if len(node.Nodes) > 0 && node.Nodes[0].XMLName.Local == "True" {
+			return node, true
+		} else if node.SimplePredicate.True(features) || node.SimpleSetPredicate.True(features) {
+			return node, true
 		}
 	}
-	return curr
+	return curr, false
 }

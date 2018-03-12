@@ -118,10 +118,18 @@ func (rf RandomForest) PublicFeatures() ([]string, error) {
 }
 
 func (rf RandomForest) String() string {
-	return fmt.Sprintf("Random Forest with %d trees. Build Params: %s. Build at %s",
+	str := fmt.Sprintf("Random Forest with %d trees. Build Params: %s. Build at %s",
 		len(rf.Trees),
 		rf.BuildParams,
 		rf.CreatedAt)
+
+	for i, t := range rf.Trees {
+		str = fmt.Sprintf("%s\n-%d: %s", str, i, t)
+		if i >= 2 {
+			break
+		}
+	}
+	return str
 }
 
 func (rf RandomForest) publicToDerivedFeature(public string) string {

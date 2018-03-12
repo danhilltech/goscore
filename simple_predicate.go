@@ -1,6 +1,7 @@
 package goscore
 
 import (
+	"fmt"
 	"strconv"
 )
 
@@ -40,6 +41,10 @@ func (p SimplePredicate) True(features map[string]interface{}) bool {
 	}
 
 	return false
+}
+
+func (p SimplePredicate) String() string {
+	return fmt.Sprintf("SimplePredicate on %s %s %s", p.Field, p.Operator, p.Value)
 }
 
 func numericTrue(p SimplePredicate, featureValue float64) bool {

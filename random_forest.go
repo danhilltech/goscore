@@ -2,6 +2,7 @@ package goscore
 
 import (
 	"encoding/xml"
+	"fmt"
 	"io/ioutil"
 	"strconv"
 	"sync"
@@ -29,6 +30,8 @@ type RandomForest struct {
 	Trees         []Node         `xml:"MiningModel>Segmentation>Segment>TreeModel"`
 	DataFields    []DataField    `xml:"DataDictionary>DataField"`
 	DerivedFields []DerivedField `xml:"TransformationDictionary>DerivedField"`
+	BuildParams   string         `xml:"MiningBuildTask>Extension"`
+	CreatedAt     string         `xml:"Header>Timestamp"`
 }
 
 // LoadRandomForest - Load Random Forest PMML file to RandomForest struct
@@ -56,13 +59,6 @@ func (rf RandomForest) Score(features_public map[string]interface{}, label strin
 	if err != nil {
 		return 0.0, err
 	}
-	result := scoreByLabel(labelScores, label)
-	return result, err
-}
-
-// ScoreConcurrently - same as Score but concurrent
-func (rf RandomForest) ScoreConcurrently(features map[string]interface{}, label string) (float64, error) {
-	labelScores, err := rf.LabelScoresConcurrently(features)
 	result := scoreByLabel(labelScores, label)
 	return result, err
 }
@@ -105,19 +101,6 @@ func (rf RandomForest) LabelScores(features_public map[string]interface{}) (map[
 		return scores, err
 	}
 
-	for _, tree := range rf.Trees {
-		score, err := tree.TraverseTree(features)
-		if err != nil {
-			return scores, err
-		}
-		scoreString := strconv.FormatFloat(score, 'f', -1, 64)
-		scores[scoreString]++
-	}
-	return scores, nil
-}
-
-// LabelScoresConcurrently - same as LabelScores but concurrent
-func (rf RandomForest) LabelScoresConcurrently(features map[string]interface{}) (map[string]float64, error) {
 	messages := rf.traverseConcurrently(features)
 	return aggregateScores(messages, len(rf.Trees))
 }
@@ -132,6 +115,13 @@ func (rf RandomForest) PublicFeatures() ([]string, error) {
 		}
 	}
 	return features, nil
+}
+
+func (rf RandomForest) String() string {
+	return fmt.Sprintf("Random Forest with %d trees. Build Params: %s. Build at %s",
+		len(rf.Trees),
+		rf.BuildParams,
+		rf.CreatedAt)
 }
 
 func (rf RandomForest) publicToDerivedFeature(public string) string {
